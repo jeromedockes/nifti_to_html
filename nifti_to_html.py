@@ -51,11 +51,23 @@ HTML_TEMPLATE = """
                 showspikes: false,
                 spikesides: false
             };
+
+            let x = 2;
+
+            if($("#select-hemisphere").val() === 'left'){
+                x = -2;
+            }
+
             let layout = {
                 width: 800,
                 height: 800,
                 hovermode: false,
+                paper_bgcolor: '#000',
+                axis_bgcolor: '#000',
                 scene: {
+                    camera: {eye: {x: x, y: 0, z: 0},
+                             up: {x: 0, y: 0, z: 1},
+                             center: {x: 0, y: 0, z: 0}},
                     xaxis: axisConfig,
                     yaxis: axisConfig,
                     zaxis: axisConfig
