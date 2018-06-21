@@ -47,11 +47,14 @@ HTML_TEMPLATE = """
                 showline: false,
                 ticks: '',
                 showticklabels: false,
-                zeroline: false
+                zeroline: false,
+                showspikes: false,
+                spikesides: false
             };
             let layout = {
                 width: 800,
                 height: 800,
+                hovermode: false,
                 scene: {
                     xaxis: axisConfig,
                     yaxis: axisConfig,
@@ -59,8 +62,12 @@ HTML_TEMPLATE = """
                 }
             };
 
-            Plotly.react(divId, data, layout);
-        }
+    let config = {
+        modeBarButtonsToRemove: ["hoverClosest3d"], displayLogo: false
+    };
+
+            Plotly.react(divId, data, layout, config);
+    }
     </script>
     <script>
         $(document).ready(
@@ -142,12 +149,16 @@ def full_brain_info(stat_map, threshold=None):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('stat_map', type=str)
+    parser.add_argument('--stat_map', type=str, default=None)
     parser.add_argument('--threshold', type=int, default=None)
     parser.add_argument(
         '--out_file', type=str, default='surface_plot_standalone.html')
     args = parser.parse_args()
-    as_json = json.dumps(full_brain_info(args.stat_map, args.threshold))
+    if args.stat_map is not None:
+        stat_map = args.stat_map
+    else:
+        stat_map = datasets.fetch_localizer_button_task()['tmaps'][0]
+    as_json = json.dumps(full_brain_info(stat_map, args.threshold))
     as_html = HTML_TEMPLATE.replace('INSERT_STAT_MAP_JSON_HERE', as_json)
     with open(args.out_file, 'w') as f:
         f.write(as_html)
