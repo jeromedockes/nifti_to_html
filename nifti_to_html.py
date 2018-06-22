@@ -1,3 +1,4 @@
+import sys
 import argparse
 import json
 
@@ -10,7 +11,7 @@ HTML_TEMPLATE = """
 <head>
     <title>surface plot</title>
     <meta charset="UTF-8" />
-    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-gl3d-latest.min.js"></script>
     <script
         src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js">
     </script>
@@ -58,12 +59,20 @@ HTML_TEMPLATE = """
                 x = -2;
             }
 
+  info['lighting'] = {"ambient": 0.5,
+            "diffuse": 1,
+            "fresnel":  .1,
+            "specular": .05,
+            "roughness": .1,
+            "facenormalsepsilon": 1e-6,
+            "vertexnormalsepsilon": 1e-12};
+
             let layout = {
                 width: 800,
                 height: 800,
                 hovermode: false,
-                paper_bgcolor: '#000',
-                axis_bgcolor: '#000',
+                paper_bgcolor: '#333',
+                axis_bgcolor: '#333',
                 scene: {
                     camera: {eye: {x: x, y: 0, z: 0},
                              up: {x: 0, y: 0, z: 1},
@@ -144,9 +153,19 @@ def to_plotly(mesh, stat_map, out_file=None):
     return info
 
 
+def load_fsaverage():
+    return {
+        'pial_left': '/home/jerome/workspace/scratch/fsaverage/pial_left.gii',
+        'infl_left': '/home/jerome/workspace/scratch/fsaverage/inflated_left.gii',
+        'pial_right': '/home/jerome/workspace/scratch/fsaverage/pial_right.gii',
+        'infl_right': '/home/jerome/workspace/scratch/fsaverage/inflated_right.gii'
+
+            }
+
 def full_brain_info(stat_map, threshold=None):
     info = {}
-    fsaverage = datasets.fetch_surf_fsaverage5()
+    # fsaverage = datasets.fetch_surf_fsaverage5()
+    fsaverage = load_fsaverage()
     for hemi in ['left', 'right']:
         pial = fsaverage['pial_{}'.format(hemi)]
         surf_map = surface.vol_to_surf(stat_map, pial)
