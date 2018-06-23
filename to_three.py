@@ -24,7 +24,7 @@ def to_three(vertices, triangles):
         'emissive': 0,
         'opacity': 1,
         'shininess': 50,
-        'specular': 0,
+        'specular': 0.05,
         'transparent': False,
         'type': 'MeshPhongMaterial',
         'uuid': material_id,
@@ -34,6 +34,8 @@ def to_three(vertices, triangles):
     # geometry['data'] = {'normals': [], 'uvs': []}
     geometry['data'] = {}
     geometry['data']['vertices'] = list(map(float, vertices.ravel()))
+    intensity = vertices[:, 0]
+    three['object']['userData'] = {'intensity': list(map(float, intensity))}
     t = np.zeros((triangles.shape[0], 4), dtype=int)
     t[:, 1:] = triangles
     geometry['data']['faces'] = list(map(int, t.ravel()))
@@ -52,8 +54,8 @@ def load_fsaverage():
 
 
 if __name__ == '__main__':
-    fsaverage = datasets.fetch_surf_fsaverage5()
     fsaverage = load_fsaverage()
+    fsaverage = datasets.fetch_surf_fsaverage5()
     mesh = surface.load_surf_mesh(fsaverage['pial_left'])
     three = to_three(*mesh)
     with open('brain.json', 'w') as f:
