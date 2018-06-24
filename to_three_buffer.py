@@ -1,4 +1,4 @@
-import sys
+import base64
 import argparse
 import json
 
@@ -24,7 +24,6 @@ HTML_TEMPLATE = """
         <!-- <script src="https://cdn.rawgit.com/mrdoob/three.js/master/examples/js/controls/OrbitControls.js"></script> -->
         <!-- <script src="https://cdn.rawgit.com/mrdoob/three.js/master/examples/js/controls/TrackballControls.js"></script> -->
         <!-- <script src="https://cdn.rawgit.com/mrdoob/three.js/master/examples/js/math/Lut.js"></script> -->
-
 
 
         <script src="file:///home/jerome/workspace/scratch/cdn/jquery.min.js"></script>
@@ -64,9 +63,13 @@ scene.position.z = position.z;
 
           var geometry = new THREE.BufferGeometry();
 
-          var vertices = new Float32Array(
-INSERT_VERTICES_HERE
-	                   );
+var raw = atob("INSERT_VERTICES_HERE")
+var buffer = new ArrayBuffer(raw.length);
+ var array = new Uint8Array(buffer);
+for(i = 0; i < raw.length; i++) {
+    array[i] = raw.charCodeAt(i);
+}
+          var vertices = new Float32Array(buffer);
 
           // itemSize = 3 because there are 3 values (components) per vertex
 
@@ -160,10 +163,11 @@ def to_three(mesh, stat_map, sample_mesh=None):
     colors = cm.cold_hot(surf_stat_map[mesh[1].ravel()])[:, :3]
     center = list(map(float, mesh[0].mean(axis=0)))
     center = {'x': center[0], 'y': center[1], 'z': center[2]}
-    vertices = list(map(float, coords.ravel()))
+    vertices = np.asarray(coords.ravel(), dtype='<f4')
+    # vertices = list(map(float, coords.ravel()))
     col = list(map(float, colors.ravel()))
     return {
-        'INSERT_VERTICES_HERE': json.dumps(vertices),
+        'INSERT_VERTICES_HERE': base64.b64encode(vertices.tobytes()).decode('utf-8'), #json.dumps(vertices),
         'INSERT_COLORS_HERE': json.dumps(col),
         'INSERT_CENTER_POSITION_HERE': json.dumps(center)
     }
