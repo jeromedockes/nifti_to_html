@@ -66,11 +66,15 @@ scene.position.z = position.z;
 var raw = atob("INSERT_VERTICES_HERE")
 var buffer = new ArrayBuffer(raw.length);
  var array = new Uint8Array(buffer);
-for(i = 0; i < raw.length; i++) {
+for(let i = 0; i < raw.length; i++) {
     array[i] = raw.charCodeAt(i);
 }
-          var vertices = new Float32Array(buffer);
-
+var view = new DataView(buffer);
+var vertices = new Float32Array(raw.length / 4);
+console.log(vertices.length);
+for(let i=0, off = 0; i < vertices.length; i++, off += 4){
+vertices[i] = view.getFloat32(off, true);
+}
           // itemSize = 3 because there are 3 values (components) per vertex
 
 var colors = new Float32Array( INSERT_COLORS_HERE );
