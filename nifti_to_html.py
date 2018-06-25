@@ -270,8 +270,8 @@ def load_fsaverage():
 
 def full_brain_info(stat_map, threshold=None):
     info = {}
-    fsaverage = datasets.fetch_surf_fsaverage5()
-    # fsaverage = load_fsaverage()
+    # fsaverage = datasets.fetch_surf_fsaverage5()
+    fsaverage = load_fsaverage()
     surf_maps = [surface.vol_to_surf(stat_map, fsaverage['pial_{}'.format(h)]) for h in ['left', 'right']]
     colors, cmax, cmap, norm, at = colorscale(plotting.cm.cold_hot,
                                     np.asarray(surf_maps).ravel(), threshold)
