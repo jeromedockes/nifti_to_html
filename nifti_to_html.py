@@ -50,12 +50,13 @@ function decodeBase64(encoded, dtype) {
 }
 
 var surfaceMapInfo = INSERT_STAT_MAP_JSON_HERE;
+var colorscale = INSERT_COLORSCALE_HERE;
 
 function addPlot() {
 
     let hemisphere = $("#select-hemisphere").val();
     let kind = $("#select-kind").val();
-    makePlot(kind, hemisphere, "surface-plot", display="intensity", erase=true);
+    makePlot(kind, hemisphere, "surface-plot", display=null, erase=true);
 }
 
 function makePlot(surface, hemisphere, divId, display="intensity", erase=false) {
@@ -64,7 +65,7 @@ function makePlot(surface, hemisphere, divId, display="intensity", erase=false) 
 
     info["type"] = "mesh3d";
 
-info["colorscale"] = INSERT_COLORSCALE_HERE;
+info["colorscale"] = colorscale;
 
 info["cmin"] = surfaceMapInfo["cmin"];
 info["cmax"] = surfaceMapInfo["cmax"];
@@ -93,9 +94,12 @@ if (!(hemi_attribute in surfaceMapInfo)){
 surfaceMapInfo[hemi_attribute] = decodeBase64(surfaceMapInfo["_" + hemi_attribute], "float32");
 }
 }
-// info["intensity"] = surfaceMapInfo[display + "_" + hemisphere];
+if (display === null){
  info["vertexcolor"] = surfaceMapInfo["vertexcolor_" + hemisphere];
-console.log(info["vertexcolor"]);
+}
+else{
+  info["intensity"] = surfaceMapInfo[display + "_" + hemisphere];
+}
     for (let attribute of ["i", "j", "k"]) {
         if (!(attribute in info)) {
             info[attribute] = decodeBase64(info["_" + attribute], "int32");
@@ -172,6 +176,13 @@ else{
     Plotly.plot(divId, data, layout, config);
 
 }
+// hack to get a colorbar
+i = {"opacity": 0, "type": "mesh3d", "colorscale": colorscale,
+     "x": [1, 0, 0], "y": [0, 1, 0], "z": [0, 0, 1], "i": [0], "j": [1],
+       "k": [2], "intensity": [0.], "cmin": surfaceMapInfo["cmin"],
+       "cmax": surfaceMapInfo["cmax"]};
+
+    Plotly.plot(divId, [i], layout, config);
 }
 
 
@@ -270,8 +281,8 @@ def load_fsaverage():
 
 def full_brain_info(stat_map, threshold=None):
     info = {}
-    # fsaverage = datasets.fetch_surf_fsaverage5()
-    fsaverage = load_fsaverage()
+    fsaverage = datasets.fetch_surf_fsaverage5()
+    # fsaverage = load_fsaverage()
     surf_maps = [surface.vol_to_surf(stat_map, fsaverage['pial_{}'.format(h)]) for h in ['left', 'right']]
     colors, cmax, cmap, norm, at = colorscale(plotting.cm.cold_hot,
                                     np.asarray(surf_maps).ravel(), threshold)
