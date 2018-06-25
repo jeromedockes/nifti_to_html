@@ -18,107 +18,139 @@ HTML_TEMPLATE = """
     </script>
     <script>
 
-        function decodeBase64(encoded, dtype){
-let getter = {"float32": "getFloat32", "int32": "getInt32"}[dtype];
-let arrayType = {"float32": Float32Array, "int32": Int32Array }[dtype];
+function decodeBase64(encoded, dtype) {
 
-let raw = atob(encoded)
-let buffer = new ArrayBuffer(raw.length);
-let asIntArray = new Uint8Array(buffer);
-for(let i = 0; i < raw.length; i++) {
-    asIntArray[i] = raw.charCodeAt(i);
-}
-let view = new DataView(buffer);
-let decoded = new arrayType(raw.length / arrayType.BYTES_PER_ELEMENT);
-for(let i=0, off = 0; i !== decoded.length; i++, off += arrayType.BYTES_PER_ELEMENT){
-decoded[i] = view[getter](off, true);
-}
-return decoded;
+    let getter = {
+        "float32": "getFloat32",
+        "int32": "getInt32"
+    }[dtype];
+
+    let arrayType = {
+        "float32": Float32Array,
+        "int32": Int32Array
+    }[dtype];
+
+    let raw = atob(encoded)
+    let buffer = new ArrayBuffer(raw.length);
+    let asIntArray = new Uint8Array(buffer);
+    for (let i = 0; i !== raw.length; i++) {
+        asIntArray[i] = raw.charCodeAt(i);
+    }
+
+    let view = new DataView(buffer);
+    let decoded = new arrayType(raw.length / arrayType.BYTES_PER_ELEMENT);
+    for (let i = 0, off = 0;
+         i !== decoded.length; i++, off += arrayType.BYTES_PER_ELEMENT) {
+        decoded[i] = view[getter](off, true);
+    }
+    return decoded;
 }
 
-        function addPlot() {
+var surfaceMapInfo = INSERT_STAT_MAP_JSON_HERE;
 
-            let surface_map_info = INSERT_STAT_MAP_JSON_HERE;
-            let hemisphere = $("#select-hemisphere").val();
-            let kind = $("#select-kind").val();
-            makePlot(
-                surface_map_info[kind + "_" + hemisphere], "surface-plot");
+function addPlot() {
+
+    let hemisphere = $("#select-hemisphere").val();
+    let kind = $("#select-kind").val();
+    makePlot(
+        surfaceMapInfo[kind + "_" + hemisphere], "surface-plot");
+}
+
+function makePlot(info, divId) {
+
+    info["type"] = "mesh3d";
+
+    info["colorscale"] = [
+        [0.0, "rgb(255, 255, 255)"],
+        [0.111, "rgb(34, 255, 255)"],
+        [0.222, "rgb(0, 131, 255)"],
+        [0.333, "rgb(0, 0, 233)"],
+        [0.444, "rgb(0, 0, 86)"],
+        [0.556, "rgb(86, 0, 0)"],
+        [0.667, "rgb(233, 0, 0)"],
+        [0.778, "rgb(255, 131, 0)"],
+        [0.889, "rgb(255, 255, 34)"],
+        [1.0, "rgb(255, 255, 255)"]
+    ];
+
+    for (let attribute of ["x", "y", "z", "intensity"]) {
+        if (!(attribute in info)) {
+            info[attribute] = decodeBase64(info["_" + attribute], "float32");
         }
+    }
 
-        function makePlot(info, divId) {
+    for (let attribute of ["i", "j", "k"]) {
+        if (!(attribute in info)) {
+            info[attribute] = decodeBase64(info["_" + attribute], "int32");
+        }
+    }
 
-            info["type"] = "mesh3d";
-
-            info["colorscale"] = [
-                [0.0, "rgb(255, 255, 255)"],
-                [0.111, "rgb(34, 255, 255)"],
-                [0.222, "rgb(0, 131, 255)"],
-                [0.333, "rgb(0, 0, 233)"],
-                [0.444, "rgb(0, 0, 86)"],
-                [0.556, "rgb(86, 0, 0)"],
-                [0.667, "rgb(233, 0, 0)"],
-                [0.778, "rgb(255, 131, 0)"],
-                [0.889, "rgb(255, 255, 34)"],
-                [1.0, "rgb(255, 255, 255)"]
-            ];
-
-for (let axis of ["x", "y", "z", "intensity"]){
-info[axis] = decodeBase64(info["_" + axis], "float32");
-}
-for (let axis of ["i", "j", "k"]){
-info[axis] = decodeBase64(info["_" + axis], "int32");
-}
-console.log(info["i"]);
-
-
-
-            let data = [info];
-            let axisConfig = {
-                showgrid: false,
-                showline: false,
-                ticks: '',
-                showticklabels: false,
-                zeroline: false,
-                showspikes: false,
-                spikesides: false
-            };
-
-            let x = 2;
-
-            if($("#select-hemisphere").val() === 'left'){
-                x = -2;
-            }
-
-  info['lighting'] = {"ambient": 0.5,
-            "diffuse": 1,
-            "fresnel":  .1,
-            "specular": .05,
-            "roughness": .1,
-            "facenormalsepsilon": 1e-6,
-            "vertexnormalsepsilon": 1e-12};
-
-            let layout = {
-                width: 800,
-                height: 800,
-                hovermode: false,
-                paper_bgcolor: '#333',
-                axis_bgcolor: '#333',
-                scene: {
-                    camera: {eye: {x: x, y: 0, z: 0},
-                             up: {x: 0, y: 0, z: 1},
-                             center: {x: 0, y: 0, z: 0}},
-                    xaxis: axisConfig,
-                    yaxis: axisConfig,
-                    zaxis: axisConfig
-                }
-            };
-
-    let config = {
-        modeBarButtonsToRemove: ["hoverClosest3d"], displayLogo: false
+    let data = [info];
+    let axisConfig = {
+        showgrid: false,
+        showline: false,
+        ticks: '',
+        showticklabels: false,
+        zeroline: false,
+        showspikes: false,
+        spikesides: false
     };
 
-            Plotly.react(divId, data, layout, config);
+    let x = 2;
+
+    if ($("#select-hemisphere").val() === 'left') {
+        x = - 2;
     }
+
+    info['lighting'] = {
+        "ambient": 0.5,
+        "diffuse": 1,
+        "fresnel": .1,
+        "specular": .05,
+        "roughness": .1,
+        "facenormalsepsilon": 1e-6,
+        "vertexnormalsepsilon": 1e-12
+    };
+
+    let layout = {
+        width: 800,
+        height: 800,
+        hovermode: false,
+        paper_bgcolor: '#333',
+        axis_bgcolor: '#333',
+        scene: {
+            camera: {
+                eye: {
+                    x: x,
+                    y: 0,
+                    z: 0
+                },
+                up: {
+                    x: 0,
+                    y: 0,
+                    z: 1
+                },
+                center: {
+                    x: 0,
+                    y: 0,
+                    z: 0
+                }
+            },
+            xaxis: axisConfig,
+            yaxis: axisConfig,
+            zaxis: axisConfig
+        }
+    };
+
+    let config = {
+        modeBarButtonsToRemove: ["hoverClosest3d"],
+        displayLogo: false
+    };
+
+    Plotly.react(divId, data, layout, config);
+}
+
+
     </script>
     <script>
         $(document).ready(
@@ -198,11 +230,12 @@ def load_fsaverage():
 
 def full_brain_info(stat_map, threshold=None):
     info = {}
-    # fsaverage = datasets.fetch_surf_fsaverage5()
-    fsaverage = load_fsaverage()
+    fsaverage = datasets.fetch_surf_fsaverage5()
+    # fsaverage = load_fsaverage()
     for hemi in ['left', 'right']:
         pial = fsaverage['pial_{}'.format(hemi)]
-        surf_map = surface.vol_to_surf(stat_map, pial)
+        # surf_map = surface.vol_to_surf(stat_map, pial)
+        surf_map = surface.load_surf_data(fsaverage['sulc_{}'.format(hemi)])
         if threshold is not None:
             abs_threshold = np.percentile(np.abs(surf_map), threshold)
             surf_map[np.abs(surf_map) < abs_threshold] = np.nan
