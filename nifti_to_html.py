@@ -1,3 +1,4 @@
+import base64
 import sys
 import argparse
 import json
@@ -16,6 +17,25 @@ HTML_TEMPLATE = """
         src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js">
     </script>
     <script>
+
+        function decodeBase64(encoded, dtype){
+let getter = {"float32": "getFloat32", "int32": "getInt32"}[dtype];
+let arrayType = {"float32": Float32Array, "int32": Int32Array }[dtype];
+
+let raw = atob(encoded)
+let buffer = new ArrayBuffer(raw.length);
+let asIntArray = new Uint8Array(buffer);
+for(let i = 0; i < raw.length; i++) {
+    asIntArray[i] = raw.charCodeAt(i);
+}
+let view = new DataView(buffer);
+let decoded = new arrayType(raw.length / arrayType.BYTES_PER_ELEMENT);
+for(let i=0, off = 0; i !== decoded.length; i++, off += arrayType.BYTES_PER_ELEMENT){
+decoded[i] = view[getter](off, true);
+}
+return decoded;
+}
+
         function addPlot() {
 
             let surface_map_info = INSERT_STAT_MAP_JSON_HERE;
@@ -41,6 +61,16 @@ HTML_TEMPLATE = """
                 [0.889, "rgb(255, 255, 34)"],
                 [1.0, "rgb(255, 255, 255)"]
             ];
+
+for (let axis of ["x", "y", "z", "intensity"]){
+info[axis] = decodeBase64(info["_" + axis], "float32");
+}
+for (let axis of ["i", "j", "k"]){
+info[axis] = decodeBase64(info["_" + axis], "int32");
+}
+console.log(info["i"]);
+
+
 
             let data = [info];
             let axisConfig = {
@@ -131,20 +161,24 @@ def colorscale(cm):
     return json.dumps(colors)
 
 
+def _encode(a):
+    return base64.b64encode(a.tobytes()).decode('utf-8')
+
+
 def to_plotly(mesh, stat_map, out_file=None):
     mesh = surface.load_surf_mesh(mesh)
-    x, y, z = map(list, mesh[0].T)
-    i, j, k = map(list, mesh[1].T)
+    x, y, z = map(_encode, np.asarray(mesh[0].T, dtype='<f4'))
+    i, j, k = map(_encode, np.asarray(mesh[1].T, dtype='<i4'))
     info = {
-        "x": x,
-        "y": y,
-        "z": z,
-        "i": i,
-        "j": j,
-        "k": k,
-        "intensity": stat_map
+        "_x": x,
+        "_y": y,
+        "_z": z,
+        "_i": i,
+        "_j": j,
+        "_k": k,
+        "_intensity": _encode(np.asarray(stat_map, dtype='<f4'))
     }
-    info = {k: [float(e) for e in v] for k, v in info.items()}
+    # info = {k: [float(e) for e in v] for k, v in info.items()}
     if out_file is None:
         return info
     json_info = json.dumps(info)
