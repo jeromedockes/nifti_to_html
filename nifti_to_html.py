@@ -93,7 +93,9 @@ if (!(hemi_attribute in surfaceMapInfo)){
 surfaceMapInfo[hemi_attribute] = decodeBase64(surfaceMapInfo["_" + hemi_attribute], "float32");
 }
 }
-info["intensity"] = surfaceMapInfo[display + "_" + hemisphere];
+// info["intensity"] = surfaceMapInfo[display + "_" + hemisphere];
+ info["vertexcolor"] = surfaceMapInfo["vertexcolor_" + hemisphere];
+console.log(info["vertexcolor"]);
     for (let attribute of ["i", "j", "k"]) {
         if (!(attribute in info)) {
             info[attribute] = decodeBase64(info["_" + attribute], "int32");
@@ -211,6 +213,7 @@ def colorscale(cmap, values, threshold=None):
     abs_max = abs_values.max()
     norm = mpl.colors.Normalize(vmin=-abs_max, vmax=abs_max)
     cmaplist = [cmap(i) for i in range(cmap.N)]
+    abs_threshold = None
     if threshold is not None:
         abs_threshold = np.percentile(abs_values, threshold)
         istart = int(norm(-abs_threshold, clip=True) * (cmap.N - 1))
@@ -225,7 +228,7 @@ def colorscale(cmap, values, threshold=None):
     colors = []
     for i, col in zip(x, rgb):
         colors.append([np.round(i, 3), "rgb({}, {}, {})".format(*col)])
-    return json.dumps(colors), abs_max
+    return json.dumps(colors), abs_max, our_cmap, norm, abs_threshold
 
 
 def _encode(a):
@@ -250,36 +253,51 @@ def to_plotly(mesh):
 
 def load_fsaverage():
     return {
-        'pial_left': '/home/jerome/workspace/scratch/fsaverage/pial_left.gii',
+        'pial_left':
+        '/home/jerome/workspace/scratch/fsaverage/pial_left.gii',
         'infl_left':
         '/home/jerome/workspace/scratch/fsaverage/inflated_left.gii',
         'pial_right':
         '/home/jerome/workspace/scratch/fsaverage/pial_right.gii',
         'infl_right':
-        '/home/jerome/workspace/scratch/fsaverage/inflated_right.gii'
+        '/home/jerome/workspace/scratch/fsaverage/inflated_right.gii',
+        'sulc_right':
+        '/home/jerome/workspace/scratch/fsaverage/sulc_right.gii',
+        'sulc_left':
+        '/home/jerome/workspace/scratch/fsaverage/sulc_left.gii'
     }
 
 
 def full_brain_info(stat_map, threshold=None):
     info = {}
-    # fsaverage = datasets.fetch_surf_fsaverage5()
-    fsaverage = load_fsaverage()
-    surf_maps = []
+    fsaverage = datasets.fetch_surf_fsaverage5()
+    # fsaverage = load_fsaverage()
+    surf_maps = [surface.vol_to_surf(stat_map, fsaverage['pial_{}'.format(h)]) for h in ['left', 'right']]
+    colors, cmax, cmap, norm, at = colorscale(plotting.cm.cold_hot,
+                                    np.asarray(surf_maps).ravel(), threshold)
+
     for hemi in ['left', 'right']:
         pial = fsaverage['pial_{}'.format(hemi)]
         surf_map = surface.vol_to_surf(stat_map, pial)
         surf_maps.append(surf_map)
-        # sulc_depth_map = surface.load_surf_data(
-        #     fsaverage['sulc_{}'.format(hemi)])
+        sulc_depth_map = surface.load_surf_data(
+            fsaverage['sulc_{}'.format(hemi)])
+        sulc_depth_map -= sulc_depth_map.min()
+        sulc_depth_map /= sulc_depth_map.max()
         info['pial_{}'.format(hemi)] = to_plotly(pial)
         info['inflated_{}'.format(hemi)] = to_plotly(
             fsaverage['infl_{}'.format(hemi)])
         info['_intensity_{}'.format(hemi)] = _encode(
             np.asarray(surf_map, dtype='<f4'))
+        vertexcolor = cmap(norm(surf_map).data)
+        if threshold is not None:
+            anat_color = cm.get_cmap('Greys')(sulc_depth_map)
+            vertexcolor[np.abs(surf_map) < at] = anat_color[np.abs(surf_map) < at]
+        info['vertexcolor_{}'.format(hemi)] = [[e for e in row] for row in vertexcolor]
         # info['_sulcal_depth_{}'.format(hemi)] = _encode(
         #     np.asarray(sulc_depth_map, dtype='<f4'))
-    colors, cmax = colorscale(plotting.cm.cold_hot,
-                              np.asarray(surf_maps).ravel(), threshold)
+    colors, cmax, cmap, norm, at = colorscale(plotting.cm.cold_hot,
+                                    np.asarray(surf_maps).ravel(), threshold)
     info["cmin"], info["cmax"] = -cmax, cmax
     return info, colors
 
