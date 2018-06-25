@@ -5,6 +5,9 @@ import json
 
 import numpy as np
 from nilearn import surface, datasets
+from nilearn import plotting
+import matplotlib as mpl
+from matplotlib import cm
 
 HTML_TEMPLATE = """
 <html>
@@ -52,33 +55,45 @@ function addPlot() {
 
     let hemisphere = $("#select-hemisphere").val();
     let kind = $("#select-kind").val();
-    makePlot(
-        surfaceMapInfo[kind + "_" + hemisphere], "surface-plot");
+    makePlot(kind, hemisphere, "surface-plot", display="intensity", erase=true);
 }
 
-function makePlot(info, divId) {
+function makePlot(surface, hemisphere, divId, display="intensity", erase=false) {
+
+    info = surfaceMapInfo[surface + "_" + hemisphere];
 
     info["type"] = "mesh3d";
 
-    info["colorscale"] = [
-        [0.0, "rgb(255, 255, 255)"],
-        [0.111, "rgb(34, 255, 255)"],
-        [0.222, "rgb(0, 131, 255)"],
-        [0.333, "rgb(0, 0, 233)"],
-        [0.444, "rgb(0, 0, 86)"],
-        [0.556, "rgb(86, 0, 0)"],
-        [0.667, "rgb(233, 0, 0)"],
-        [0.778, "rgb(255, 131, 0)"],
-        [0.889, "rgb(255, 255, 34)"],
-        [1.0, "rgb(255, 255, 255)"]
-    ];
+info["colorscale"] = INSERT_COLORSCALE_HERE;
 
-    for (let attribute of ["x", "y", "z", "intensity"]) {
+info["cmin"] = surfaceMapInfo["cmin"];
+info["cmax"] = surfaceMapInfo["cmax"];
+//    info["colorscale"] = [
+//        [0.0, "rgb(255, 255, 255)"],
+//        [0.111, "rgb(34, 255, 255)"],
+//        [0.222, "rgb(0, 131, 255)"],
+//        [0.333, "rgb(0, 0, 233)"],
+//        [0.444, "rgb(0, 0, 86)"],
+//        [0.556, "rgb(86, 0, 0)"],
+//        [0.667, "rgb(233, 0, 0)"],
+//        [0.778, "rgb(255, 131, 0)"],
+//        [0.889, "rgb(255, 255, 34)"],
+//        [1.0, "rgb(255, 255, 255)"]
+//    ];
+
+    for (let attribute of ["x", "y", "z"]) {
         if (!(attribute in info)) {
             info[attribute] = decodeBase64(info["_" + attribute], "float32");
         }
     }
 
+for (let attribute of ["intensity"]){
+let hemi_attribute = attribute + "_" + hemisphere;
+if (!(hemi_attribute in surfaceMapInfo)){
+surfaceMapInfo[hemi_attribute] = decodeBase64(surfaceMapInfo["_" + hemi_attribute], "float32");
+}
+}
+info["intensity"] = surfaceMapInfo[display + "_" + hemisphere];
     for (let attribute of ["i", "j", "k"]) {
         if (!(attribute in info)) {
             info[attribute] = decodeBase64(info["_" + attribute], "int32");
@@ -116,7 +131,7 @@ function makePlot(info, divId) {
         width: 800,
         height: 800,
         hovermode: false,
-        paper_bgcolor: '#333',
+        paper_bgcolor: '#fff',
         axis_bgcolor: '#333',
         scene: {
             camera: {
@@ -147,7 +162,14 @@ function makePlot(info, divId) {
         displayLogo: false
     };
 
+if(erase){
+
     Plotly.react(divId, data, layout, config);
+}
+else{
+    Plotly.plot(divId, data, layout, config);
+
+}
 }
 
 
@@ -183,21 +205,34 @@ function makePlot(info, divId) {
 """
 
 
-def colorscale(cm):
-    x = np.linspace(0, 1, 10)
-    rgb = cm(x, bytes=True)[:, :3]
+def colorscale(cmap, values, threshold=None):
+    cmap = cm.get_cmap(cmap)
+    abs_values = np.abs(values)
+    abs_max = abs_values.max()
+    norm = mpl.colors.Normalize(vmin=-abs_max, vmax=abs_max)
+    cmaplist = [cmap(i) for i in range(cmap.N)]
+    if threshold is not None:
+        abs_threshold = np.percentile(abs_values, threshold)
+        istart = int(norm(-abs_threshold, clip=True) * (cmap.N - 1))
+        istop = int(norm(abs_threshold, clip=True) * (cmap.N - 1))
+        for i in range(istart, istop):
+            cmaplist[i] = (0.5, 0.5, 0.5, 1.)  # just an average gray color
+    our_cmap = mpl.colors.LinearSegmentedColormap.from_list(
+        'Custom cmap', cmaplist, cmap.N)
+    x = np.linspace(0, 1, 100)
+    rgb = our_cmap(x, bytes=True)[:, :3]
     rgb = np.array(rgb, dtype=int)
     colors = []
     for i, col in zip(x, rgb):
         colors.append([np.round(i, 3), "rgb({}, {}, {})".format(*col)])
-    return json.dumps(colors)
+    return json.dumps(colors), abs_max
 
 
 def _encode(a):
     return base64.b64encode(a.tobytes()).decode('utf-8')
 
 
-def to_plotly(mesh, stat_map, out_file=None):
+def to_plotly(mesh):
     mesh = surface.load_surf_mesh(mesh)
     x, y, z = map(_encode, np.asarray(mesh[0].T, dtype='<f4'))
     i, j, k = map(_encode, np.asarray(mesh[1].T, dtype='<i4'))
@@ -208,41 +243,45 @@ def to_plotly(mesh, stat_map, out_file=None):
         "_i": i,
         "_j": j,
         "_k": k,
-        "_intensity": _encode(np.asarray(stat_map, dtype='<f4'))
+        # "_intensity": _encode(np.asarray(stat_map, dtype='<f4'))
     }
-    # info = {k: [float(e) for e in v] for k, v in info.items()}
-    if out_file is None:
-        return info
-    json_info = json.dumps(info)
-    with open(out_file, 'wb') as f:
-        f.write(json_info.encode('utf-8'))
     return info
 
 
 def load_fsaverage():
     return {
         'pial_left': '/home/jerome/workspace/scratch/fsaverage/pial_left.gii',
-        'infl_left': '/home/jerome/workspace/scratch/fsaverage/inflated_left.gii',
-        'pial_right': '/home/jerome/workspace/scratch/fsaverage/pial_right.gii',
-        'infl_right': '/home/jerome/workspace/scratch/fsaverage/inflated_right.gii'
+        'infl_left':
+        '/home/jerome/workspace/scratch/fsaverage/inflated_left.gii',
+        'pial_right':
+        '/home/jerome/workspace/scratch/fsaverage/pial_right.gii',
+        'infl_right':
+        '/home/jerome/workspace/scratch/fsaverage/inflated_right.gii'
+    }
 
-            }
 
 def full_brain_info(stat_map, threshold=None):
     info = {}
-    fsaverage = datasets.fetch_surf_fsaverage5()
-    # fsaverage = load_fsaverage()
+    # fsaverage = datasets.fetch_surf_fsaverage5()
+    fsaverage = load_fsaverage()
+    surf_maps = []
     for hemi in ['left', 'right']:
         pial = fsaverage['pial_{}'.format(hemi)]
-        # surf_map = surface.vol_to_surf(stat_map, pial)
-        surf_map = surface.load_surf_data(fsaverage['sulc_{}'.format(hemi)])
-        if threshold is not None:
-            abs_threshold = np.percentile(np.abs(surf_map), threshold)
-            surf_map[np.abs(surf_map) < abs_threshold] = np.nan
-        info['pial_{}'.format(hemi)] = to_plotly(pial, surf_map)
+        surf_map = surface.vol_to_surf(stat_map, pial)
+        surf_maps.append(surf_map)
+        # sulc_depth_map = surface.load_surf_data(
+        #     fsaverage['sulc_{}'.format(hemi)])
+        info['pial_{}'.format(hemi)] = to_plotly(pial)
         info['inflated_{}'.format(hemi)] = to_plotly(
-            fsaverage['infl_{}'.format(hemi)], surf_map)
-    return info
+            fsaverage['infl_{}'.format(hemi)])
+        info['_intensity_{}'.format(hemi)] = _encode(
+            np.asarray(surf_map, dtype='<f4'))
+        # info['_sulcal_depth_{}'.format(hemi)] = _encode(
+        #     np.asarray(sulc_depth_map, dtype='<f4'))
+    colors, cmax = colorscale(plotting.cm.cold_hot,
+                              np.asarray(surf_maps).ravel(), threshold)
+    info["cmin"], info["cmax"] = -cmax, cmax
+    return info, colors
 
 
 if __name__ == '__main__':
@@ -256,7 +295,9 @@ if __name__ == '__main__':
         stat_map = args.stat_map
     else:
         stat_map = datasets.fetch_localizer_button_task()['tmaps'][0]
-    as_json = json.dumps(full_brain_info(stat_map, args.threshold))
+    info, colors = full_brain_info(stat_map, args.threshold)
+    as_json = json.dumps(info)
     as_html = HTML_TEMPLATE.replace('INSERT_STAT_MAP_JSON_HERE', as_json)
+    as_html = as_html.replace('INSERT_COLORSCALE_HERE', colors)
     with open(args.out_file, 'w') as f:
         f.write(as_html)
