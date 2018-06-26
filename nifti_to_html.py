@@ -1,5 +1,4 @@
 import base64
-import sys
 import argparse
 import json
 
@@ -17,9 +16,13 @@ HTML_TEMPLATE = """
     <title>surface plot</title>
     <meta charset="UTF-8" />
     <script src="https://cdn.plot.ly/plotly-gl3d-latest.min.js"></script>
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js">
+    <script
+        src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js">
     </script>
     <script>
+        var surfaceMapInfo = INSERT_STAT_MAP_JSON_HERE;
+        var colorscale = INSERT_COLORSCALE_HERE;
+
         function decodeBase64(encoded, dtype) {
 
             let getter = {
@@ -49,16 +52,127 @@ HTML_TEMPLATE = """
             return decoded;
         }
 
-        var surfaceMapInfo = INSERT_STAT_MAP_JSON_HERE;
-        var colorscale = INSERT_COLORSCALE_HERE;
-
         function addPlot() {
 
             let hemisphere = $("#select-hemisphere").val();
             let kind = $("#select-kind").val();
             makePlot(kind, hemisphere,
-                     "surface-plot", display = null, erase = true);
+                "surface-plot", display = null, erase = true);
         }
+
+        function getLayout() {
+
+            let camera = getCamera();
+            let axisConfig = getAxisConfig();
+
+            let layout = {
+                width: $(window).width() * .8,
+                height: $(window).outerHeight() * .8,
+                hovermode: false,
+                paper_bgcolor: '#fff',
+                axis_bgcolor: '#333',
+                scene: {
+                    camera: camera,
+                    xaxis: axisConfig,
+                    yaxis: axisConfig,
+                    zaxis: axisConfig
+                }
+            };
+
+            return layout;
+
+        }
+
+        function getConfig() {
+            let config = {
+                modeBarButtonsToRemove: ["hoverClosest3d"],
+                displayLogo: false
+            };
+
+            return config;
+        }
+
+        function getAxisConfig() {
+            let axisConfig = {
+                showgrid: false,
+                showline: false,
+                ticks: '',
+                showticklabels: false,
+                zeroline: false,
+                showspikes: false,
+                spikesides: false
+            };
+
+            return axisConfig;
+        }
+
+        function getLighting() {
+            return {
+                "ambient": 0.5,
+                "diffuse": 1,
+                "fresnel": .1,
+                "specular": .05,
+                "roughness": .1,
+                "facenormalsepsilon": 1e-6,
+                "vertexnormalsepsilon": 1e-12
+            };
+
+        }
+
+        function addColorbar(divId, layout, config) {
+            // hack to get a colorbar
+            let dummy = {
+                "opacity": 0,
+                "type": "mesh3d",
+                "colorscale": colorscale,
+                "x": [1, 0, 0],
+                "y": [0, 1, 0],
+                "z": [0, 0, 1],
+                "i": [0],
+                "j": [1],
+                "k": [2],
+                "intensity": [0.],
+                "cmin": surfaceMapInfo["cmin"],
+                "cmax": surfaceMapInfo["cmax"]
+            };
+
+            Plotly.plot(divId, [dummy], layout, config);
+
+        }
+
+        function getCamera() {
+            let view = $("#select-view").val();
+            if (view === "custom") {
+                try {
+                    return $("#surface-plot")[0].layout.scene.camera;
+                } catch (e) {
+                    return {};
+                }
+            }
+            let cameras = {
+                "left": {eye: {x: -2, y: 0, z: 0},
+                         up: {x: 0, y: 0, z: 1},
+                         center: {x: 0, y: 0, z: 0}},
+                "right": {eye: {x: 2, y: 0, z: 0},
+                          up: {x: 0, y: 0, z: 1},
+                          center: {x: 0, y: 0, z: 0}},
+                "top": {eye: {x: 0, y: 0, z: 2},
+                        up: {x: 0, y: 0, z: 1},
+                        center: {x: 0, y: 0, z: 0}},
+                "bottom": {eye: {x: 0, y: 0, z: -2},
+                           up: {x: 0, y: 0, z: 1},
+                           center: {x: 0, y: 0, z: 0}},
+                "front": {eye: {x: 0, y: 2, z: 0},
+                          up: {x: 0, y: 0, z: 1},
+                          center: {x: 0, y: 0, z: 0}},
+                "back": {eye: {x: 0, y: -2, z: 0},
+                         up: {x: 0, y: 0, z: 1},
+                         center: {x: 0, y: 0, z: 0}},
+            };
+            return cameras[view];
+
+        }
+
 
         function makePlot(surface, hemisphere, divId) {
 
@@ -82,109 +196,16 @@ HTML_TEMPLATE = """
             }
 
             info["vertexcolor"] = surfaceMapInfo["vertexcolor_" + hemisphere];
-            console.log(info["vertexcolor"]);
 
             let data = [info];
-            let axisConfig = {
-                showgrid: false,
-                showline: false,
-                ticks: '',
-                showticklabels: false,
-                zeroline: false,
-                showspikes: false,
-                spikesides: false
-            };
 
-            let camera = getCamera();
-
-            info['lighting'] = {
-                "ambient": 0.5,
-                "diffuse": 1,
-                "fresnel": .1,
-                "specular": .05,
-                "roughness": .1,
-                "facenormalsepsilon": 1e-6,
-                "vertexnormalsepsilon": 1e-12
-            };
-
-            let layout = {
-                width: $(window).width() * .8,
-                height: $(window).outerHeight() * .8,
-                hovermode: false,
-                paper_bgcolor: '#fff',
-                axis_bgcolor: '#333',
-                scene: {
-                    camera: camera,
-                    xaxis: axisConfig,
-                    yaxis: axisConfig,
-                    zaxis: axisConfig
-                }
-            };
-
-            let config = {
-                modeBarButtonsToRemove: ["hoverClosest3d"],
-                displayLogo: false
-            };
-
+            info['lighting'] = getLighting();
+            let layout = getLayout();
+            let config = getConfig();
 
             Plotly.react(divId, data, layout, config);
 
-            // hack to get a colorbar
-            dummy = {
-                "opacity": 0,
-                "type": "mesh3d",
-                "colorscale": colorscale,
-                "x": [1, 0, 0],
-                "y": [0, 1, 0],
-                "z": [0, 0, 1],
-                "i": [0],
-                "j": [1],
-                "k": [2],
-                "intensity": [0.],
-                "cmin": surfaceMapInfo["cmin"],
-                "cmax": surfaceMapInfo["cmax"]
-            };
-
-            Plotly.plot(divId, [dummy], layout, config);
-        }
-
-        function getCamera() {
-            let view = $("#select-view").val();
-            if (view === "custom") {
-                try {
-                    return $("#surface-plot")[0].layout.scene.camera;
-                } catch (e) {
-                    return {};
-                }
-            }
-            let cameras = {
-                "left": {eye: {x: -2, y: 0, z: 0},
-                    up: {x: 0, y: 0, z: 1},
-                    center: {x: 0, y: 0, z: 0}
-                },
-                "right": {eye: {x: 2, y: 0, z: 0},
-                    up: {x: 0, y: 0, z: 1},
-                    center: {x: 0, y: 0, z: 0}
-                },
-                "top": {eye: {x: 0, y: 0, z: 2},
-                    up: {x: 0, y: 0, z: 1},
-                    center: {x: 0, y: 0, z: 0}
-                },
-                "bottom": {eye: {x: 0, y: 0, z: -2},
-                    up: {x: 0, y: 0, z: 1},
-                    center: {x: 0, y: 0, z: 0}
-                },
-                "front": {eye: {x: 0, y: 2, z: 0},
-                    up: {x: 0, y: 0, z: 1},
-                    center: {x: 0, y: 0, z: 0}
-                },
-                "back": {eye: {x: 0, y: -2, z: 0},
-                    up: {x: 0, y: 0, z: 1},
-                    center: {x: 0, y: 0, z: 0}
-                },
-            };
-            return cameras[view];
-
+            addColorbar(divId, layout, config);
         }
     </script>
     <script>
@@ -221,7 +242,7 @@ HTML_TEMPLATE = """
 <option value="back">view: Back</option>
 <option value="top">view: Top</option>
 <option value="bottom">view: Bottom</option>
-<option value="custom">-</option>
+<option value="custom">view: -</option>
 </select>
 
 </body>
@@ -291,29 +312,28 @@ def load_fsaverage():
     }
 
 
-def full_brain_info(stat_map, threshold=None):
+def full_brain_info(stat_map, mesh=None,
+                    threshold=None, cmap=plotting.cm.cold_hot):
     info = {}
-    fsaverage = datasets.fetch_surf_fsaverage5()
-    # fsaverage = load_fsaverage()
+    if mesh is None:
+        # mesh = datasets.fetch_surf_fsaverage5()
+        mesh = load_fsaverage()
     surf_maps = [
-        surface.vol_to_surf(stat_map, fsaverage['pial_{}'.format(h)])
+        surface.vol_to_surf(stat_map, mesh['pial_{}'.format(h)])
         for h in ['left', 'right']
     ]
-    colors, cmax, cmap, norm, at = colorscale(plotting.cm.cold_hot,
-                                              np.asarray(surf_maps).ravel(),
-                                              threshold)
+    colors, cmax, cmap, norm, at = colorscale(
+        cmap, np.asarray(surf_maps).ravel(), threshold)
 
-    for hemi in ['left', 'right']:
-        pial = fsaverage['pial_{}'.format(hemi)]
-        surf_map = surface.vol_to_surf(stat_map, pial)
-        surf_maps.append(surf_map)
+    for hemi, surf_map in zip(['left', 'right'], surf_maps):
+        pial = mesh['pial_{}'.format(hemi)]
         sulc_depth_map = surface.load_surf_data(
-            fsaverage['sulc_{}'.format(hemi)])
+            mesh['sulc_{}'.format(hemi)])
         sulc_depth_map -= sulc_depth_map.min()
         sulc_depth_map /= sulc_depth_map.max()
         info['pial_{}'.format(hemi)] = to_plotly(pial)
         info['inflated_{}'.format(hemi)] = to_plotly(
-            fsaverage['infl_{}'.format(hemi)])
+            mesh['infl_{}'.format(hemi)])
         vertexcolor = cmap(norm(surf_map).data)
         if threshold is not None:
             anat_color = cm.get_cmap('Greys')(sulc_depth_map)
@@ -323,17 +343,16 @@ def full_brain_info(stat_map, threshold=None):
         info['vertexcolor_{}'.format(hemi)] = [
             '#{:02x}{:02x}{:02x}'.format(*row) for row in vertexcolor
         ]
-    colors, cmax, cmap, norm, at = colorscale(plotting.cm.cold_hot,
-                                              np.asarray(surf_maps).ravel(),
-                                              threshold)
     info["cmin"], info["cmax"] = -cmax, cmax
     return info, colors
 
 
-def make_html(stat_map=None, threshold=None):
+def make_html(stat_map=None, mesh=None,
+              threshold=None, cmap=plotting.cm.cold_hot):
     if stat_map is None:
         stat_map = datasets.fetch_localizer_button_task()['tmaps'][0]
-    info, colors = full_brain_info(stat_map, threshold)
+    info, colors = full_brain_info(
+        stat_map=stat_map, mesh=mesh, threshold=threshold, cmap=cmap)
     as_json = json.dumps(info)
     as_html = HTML_TEMPLATE.replace('INSERT_STAT_MAP_JSON_HERE', as_json)
     as_html = as_html.replace('INSERT_COLORSCALE_HERE', colors)
@@ -347,6 +366,6 @@ if __name__ == '__main__':
     parser.add_argument(
         '--out_file', type=str, default='surface_plot_standalone.html')
     args = parser.parse_args()
-    as_html = make_html(args.stat_map, args.threshold)
+    as_html = make_html(args.stat_map, threshold=args.threshold)
     with open(args.out_file, 'w') as f:
         f.write(as_html)

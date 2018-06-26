@@ -1,1 +1,4 @@
 info.json
+.ipynb_checkpoints/
+*.json
+__pycache__/
