@@ -10,189 +10,193 @@ import matplotlib as mpl
 from matplotlib import cm
 
 HTML_TEMPLATE = """
+
 <html>
 
 <head>
     <title>surface plot</title>
     <meta charset="UTF-8" />
     <script src="https://cdn.plot.ly/plotly-gl3d-latest.min.js"></script>
-    <script
-        src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js">
     </script>
     <script>
+        function decodeBase64(encoded, dtype) {
 
-function decodeBase64(encoded, dtype) {
+            let getter = {
+                "float32": "getFloat32",
+                "int32": "getInt32"
+            }[dtype];
 
-    let getter = {
-        "float32": "getFloat32",
-        "int32": "getInt32"
-    }[dtype];
+            let arrayType = {
+                "float32": Float32Array,
+                "int32": Int32Array
+            }[dtype];
 
-    let arrayType = {
-        "float32": Float32Array,
-        "int32": Int32Array
-    }[dtype];
+            let raw = atob(encoded)
+            let buffer = new ArrayBuffer(raw.length);
+            let asIntArray = new Uint8Array(buffer);
+            for (let i = 0; i !== raw.length; i++) {
+                asIntArray[i] = raw.charCodeAt(i);
+            }
 
-    let raw = atob(encoded)
-    let buffer = new ArrayBuffer(raw.length);
-    let asIntArray = new Uint8Array(buffer);
-    for (let i = 0; i !== raw.length; i++) {
-        asIntArray[i] = raw.charCodeAt(i);
-    }
-
-    let view = new DataView(buffer);
-    let decoded = new arrayType(raw.length / arrayType.BYTES_PER_ELEMENT);
-    for (let i = 0, off = 0;
-         i !== decoded.length; i++, off += arrayType.BYTES_PER_ELEMENT) {
-        decoded[i] = view[getter](off, true);
-    }
-    return decoded;
-}
-
-var surfaceMapInfo = INSERT_STAT_MAP_JSON_HERE;
-var colorscale = INSERT_COLORSCALE_HERE;
-
-function addPlot() {
-
-    let hemisphere = $("#select-hemisphere").val();
-    let kind = $("#select-kind").val();
-    makePlot(kind, hemisphere, "surface-plot", display=null, erase=true);
-}
-
-function makePlot(surface, hemisphere, divId, display="intensity", erase=false) {
-
-    info = surfaceMapInfo[surface + "_" + hemisphere];
-
-    info["type"] = "mesh3d";
-
-info["colorscale"] = colorscale;
-
-info["cmin"] = surfaceMapInfo["cmin"];
-info["cmax"] = surfaceMapInfo["cmax"];
-//    info["colorscale"] = [
-//        [0.0, "rgb(255, 255, 255)"],
-//        [0.111, "rgb(34, 255, 255)"],
-//        [0.222, "rgb(0, 131, 255)"],
-//        [0.333, "rgb(0, 0, 233)"],
-//        [0.444, "rgb(0, 0, 86)"],
-//        [0.556, "rgb(86, 0, 0)"],
-//        [0.667, "rgb(233, 0, 0)"],
-//        [0.778, "rgb(255, 131, 0)"],
-//        [0.889, "rgb(255, 255, 34)"],
-//        [1.0, "rgb(255, 255, 255)"]
-//    ];
-
-    for (let attribute of ["x", "y", "z"]) {
-        if (!(attribute in info)) {
-            info[attribute] = decodeBase64(info["_" + attribute], "float32");
+            let view = new DataView(buffer);
+            let decoded = new arrayType(
+                raw.length / arrayType.BYTES_PER_ELEMENT);
+            for (let i = 0, off = 0; i !== decoded.length;
+                i++, off += arrayType.BYTES_PER_ELEMENT) {
+                decoded[i] = view[getter](off, true);
+            }
+            return decoded;
         }
-    }
 
-for (let attribute of ["intensity"]){
-let hemi_attribute = attribute + "_" + hemisphere;
-if (!(hemi_attribute in surfaceMapInfo)){
-surfaceMapInfo[hemi_attribute] = decodeBase64(surfaceMapInfo["_" + hemi_attribute], "float32");
-}
-}
-if (display === null){
- info["vertexcolor"] = surfaceMapInfo["vertexcolor_" + hemisphere];
-}
-else{
-  info["intensity"] = surfaceMapInfo[display + "_" + hemisphere];
-}
-    for (let attribute of ["i", "j", "k"]) {
-        if (!(attribute in info)) {
-            info[attribute] = decodeBase64(info["_" + attribute], "int32");
+        var surfaceMapInfo = INSERT_STAT_MAP_JSON_HERE;
+        var colorscale = INSERT_COLORSCALE_HERE;
+
+        function addPlot() {
+
+            let hemisphere = $("#select-hemisphere").val();
+            let kind = $("#select-kind").val();
+            makePlot(kind, hemisphere,
+                     "surface-plot", display = null, erase = true);
         }
-    }
 
-    let data = [info];
-    let axisConfig = {
-        showgrid: false,
-        showline: false,
-        ticks: '',
-        showticklabels: false,
-        zeroline: false,
-        showspikes: false,
-        spikesides: false
-    };
+        function makePlot(surface, hemisphere, divId) {
 
-    let x = 2;
+            info = surfaceMapInfo[surface + "_" + hemisphere];
 
-    if ($("#select-hemisphere").val() === 'left') {
-        x = - 2;
-    }
+            info["type"] = "mesh3d";
 
-    info['lighting'] = {
-        "ambient": 0.5,
-        "diffuse": 1,
-        "fresnel": .1,
-        "specular": .05,
-        "roughness": .1,
-        "facenormalsepsilon": 1e-6,
-        "vertexnormalsepsilon": 1e-12
-    };
 
-    let layout = {
-        width: 800,
-        height: 800,
-        hovermode: false,
-        paper_bgcolor: '#fff',
-        axis_bgcolor: '#333',
-        scene: {
-            camera: {
-                eye: {
-                    x: x,
-                    y: 0,
-                    z: 0
-                },
-                up: {
-                    x: 0,
-                    y: 0,
-                    z: 1
-                },
-                center: {
-                    x: 0,
-                    y: 0,
-                    z: 0
+            for (let attribute of ["x", "y", "z"]) {
+                if (!(attribute in info)) {
+                    info[attribute] = decodeBase64(
+                        info["_" + attribute], "float32");
                 }
-            },
-            xaxis: axisConfig,
-            yaxis: axisConfig,
-            zaxis: axisConfig
+            }
+
+            for (let attribute of ["i", "j", "k"]) {
+                if (!(attribute in info)) {
+                    info[attribute] = decodeBase64(
+                        info["_" + attribute], "int32");
+                }
+            }
+
+            info["vertexcolor"] = surfaceMapInfo["vertexcolor_" + hemisphere];
+            console.log(info["vertexcolor"]);
+
+            let data = [info];
+            let axisConfig = {
+                showgrid: false,
+                showline: false,
+                ticks: '',
+                showticklabels: false,
+                zeroline: false,
+                showspikes: false,
+                spikesides: false
+            };
+
+            let camera = getCamera();
+
+            info['lighting'] = {
+                "ambient": 0.5,
+                "diffuse": 1,
+                "fresnel": .1,
+                "specular": .05,
+                "roughness": .1,
+                "facenormalsepsilon": 1e-6,
+                "vertexnormalsepsilon": 1e-12
+            };
+
+            let layout = {
+                width: 800,
+                height: 800,
+                hovermode: false,
+                paper_bgcolor: '#fff',
+                axis_bgcolor: '#333',
+                scene: {
+                    camera: camera,
+                    xaxis: axisConfig,
+                    yaxis: axisConfig,
+                    zaxis: axisConfig
+                }
+            };
+
+            let config = {
+                modeBarButtonsToRemove: ["hoverClosest3d"],
+                displayLogo: false
+            };
+
+
+            Plotly.react(divId, data, layout, config);
+
+            // hack to get a colorbar
+            dummy = {
+                "opacity": 0,
+                "type": "mesh3d",
+                "colorscale": colorscale,
+                "x": [1, 0, 0],
+                "y": [0, 1, 0],
+                "z": [0, 0, 1],
+                "i": [0],
+                "j": [1],
+                "k": [2],
+                "intensity": [0.],
+                "cmin": surfaceMapInfo["cmin"],
+                "cmax": surfaceMapInfo["cmax"]
+            };
+
+            Plotly.plot(divId, [dummy], layout, config);
         }
-    };
 
-    let config = {
-        modeBarButtonsToRemove: ["hoverClosest3d"],
-        displayLogo: false
-    };
+        function getCamera() {
+            let view = $("#select-view").val();
+            if (view === "custom") {
+                try {
+                    return $("#surface-plot")[0].layout.scene.camera;
+                } catch (e) {
+                    return {};
+                }
+            }
+            let cameras = {
+                "left": {eye: {x: -2, y: 0, z: 0},
+                    up: {x: 0, y: 0, z: 1},
+                    center: {x: 0, y: 0, z: 0}
+                },
+                "right": {eye: {x: 2, y: 0, z: 0},
+                    up: {x: 0, y: 0, z: 1},
+                    center: {x: 0, y: 0, z: 0}
+                },
+                "top": {eye: {x: 0, y: 0, z: 2},
+                    up: {x: 0, y: 0, z: 1},
+                    center: {x: 0, y: 0, z: 0}
+                },
+                "bottom": {eye: {x: 0, y: 0, z: -2},
+                    up: {x: 0, y: 0, z: 1},
+                    center: {x: 0, y: 0, z: 0}
+                },
+                "front": {eye: {x: 0, y: 2, z: 0},
+                    up: {x: 0, y: 0, z: 1},
+                    center: {x: 0, y: 0, z: 0}
+                },
+                "back": {eye: {x: 0, y: -2, z: 0},
+                    up: {x: 0, y: 0, z: 1},
+                    center: {x: 0, y: 0, z: 0}
+                },
+            };
+            return cameras[view];
 
-if(erase){
-
-    Plotly.react(divId, data, layout, config);
-}
-else{
-    Plotly.plot(divId, data, layout, config);
-
-}
-// hack to get a colorbar
-i = {"opacity": 0, "type": "mesh3d", "colorscale": colorscale,
-     "x": [1, 0, 0], "y": [0, 1, 0], "z": [0, 0, 1], "i": [0], "j": [1],
-       "k": [2], "intensity": [0.], "cmin": surfaceMapInfo["cmin"],
-       "cmax": surfaceMapInfo["cmax"]};
-
-    Plotly.plot(divId, [i], layout, config);
-}
-
-
+        }
     </script>
     <script>
         $(document).ready(
             function() {
                 addPlot();
-                $("#select-hemisphere").change(addPlot)
-                $("#select-kind").change(addPlot)
+                $("#select-hemisphere").change(addPlot);
+                $("#select-kind").change(addPlot);
+                $("#select-view").change(addPlot);
+                $("#surface-plot").click(function() {
+                    $("#select-view").val("custom");
+                });
 
             });
     </script>
@@ -209,11 +213,19 @@ i = {"opacity": 0, "type": "mesh3d", "colorscale": colorscale,
 <option value="inflated">Inflated</option>
 <option value="pial">Pial</option>
 </select>
+    <select id="select-view">
+<option value="left">view: Left</option>
+<option value="right">view: Right</option>
+<option value="front">view: Front</option>
+<option value="back">view: Back</option>
+<option value="top">view: Top</option>
+<option value="bottom">view: Bottom</option>
+<option value="custom">-</option>
+</select>
 
 </body>
 
 </html>
-
 
 """
 
@@ -257,7 +269,6 @@ def to_plotly(mesh):
         "_i": i,
         "_j": j,
         "_k": k,
-        # "_intensity": _encode(np.asarray(stat_map, dtype='<f4'))
     }
     return info
 
@@ -283,9 +294,13 @@ def full_brain_info(stat_map, threshold=None):
     info = {}
     fsaverage = datasets.fetch_surf_fsaverage5()
     # fsaverage = load_fsaverage()
-    surf_maps = [surface.vol_to_surf(stat_map, fsaverage['pial_{}'.format(h)]) for h in ['left', 'right']]
+    surf_maps = [
+        surface.vol_to_surf(stat_map, fsaverage['pial_{}'.format(h)])
+        for h in ['left', 'right']
+    ]
     colors, cmax, cmap, norm, at = colorscale(plotting.cm.cold_hot,
-                                    np.asarray(surf_maps).ravel(), threshold)
+                                              np.asarray(surf_maps).ravel(),
+                                              threshold)
 
     for hemi in ['left', 'right']:
         pial = fsaverage['pial_{}'.format(hemi)]
@@ -298,17 +313,18 @@ def full_brain_info(stat_map, threshold=None):
         info['pial_{}'.format(hemi)] = to_plotly(pial)
         info['inflated_{}'.format(hemi)] = to_plotly(
             fsaverage['infl_{}'.format(hemi)])
-        info['_intensity_{}'.format(hemi)] = _encode(
-            np.asarray(surf_map, dtype='<f4'))
         vertexcolor = cmap(norm(surf_map).data)
         if threshold is not None:
             anat_color = cm.get_cmap('Greys')(sulc_depth_map)
-            vertexcolor[np.abs(surf_map) < at] = anat_color[np.abs(surf_map) < at]
-        info['vertexcolor_{}'.format(hemi)] = [[e for e in row] for row in vertexcolor]
-        # info['_sulcal_depth_{}'.format(hemi)] = _encode(
-        #     np.asarray(sulc_depth_map, dtype='<f4'))
+            vertexcolor[np.abs(surf_map) < at] = anat_color[
+                np.abs(surf_map) < at]
+        vertexcolor = np.asarray(vertexcolor * 255, dtype='uint8')
+        info['vertexcolor_{}'.format(hemi)] = [
+            '#{:02x}{:02x}{:02x}'.format(*row) for row in vertexcolor
+        ]
     colors, cmax, cmap, norm, at = colorscale(plotting.cm.cold_hot,
-                                    np.asarray(surf_maps).ravel(), threshold)
+                                              np.asarray(surf_maps).ravel(),
+                                              threshold)
     info["cmin"], info["cmax"] = -cmax, cmax
     return info, colors
 
