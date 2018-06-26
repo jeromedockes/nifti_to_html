@@ -108,8 +108,8 @@ HTML_TEMPLATE = """
             };
 
             let layout = {
-                width: 800,
-                height: 800,
+                width: $(window).width() * .8,
+                height: $(window).outerHeight() * .8,
                 hovermode: false,
                 paper_bgcolor: '#fff',
                 axis_bgcolor: '#333',
@@ -194,9 +194,10 @@ HTML_TEMPLATE = """
                 $("#select-hemisphere").change(addPlot);
                 $("#select-kind").change(addPlot);
                 $("#select-view").change(addPlot);
-                $("#surface-plot").click(function() {
+                $("#surface-plot").mouseup(function() {
                     $("#select-view").val("custom");
                 });
+                $(window).resize(addPlot);
 
             });
     </script>
@@ -329,6 +330,16 @@ def full_brain_info(stat_map, threshold=None):
     return info, colors
 
 
+def make_html(stat_map=None, threshold=None):
+    if stat_map is None:
+        stat_map = datasets.fetch_localizer_button_task()['tmaps'][0]
+    info, colors = full_brain_info(stat_map, threshold)
+    as_json = json.dumps(info)
+    as_html = HTML_TEMPLATE.replace('INSERT_STAT_MAP_JSON_HERE', as_json)
+    as_html = as_html.replace('INSERT_COLORSCALE_HERE', colors)
+    return as_html
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--stat_map', type=str, default=None)
@@ -336,13 +347,6 @@ if __name__ == '__main__':
     parser.add_argument(
         '--out_file', type=str, default='surface_plot_standalone.html')
     args = parser.parse_args()
-    if args.stat_map is not None:
-        stat_map = args.stat_map
-    else:
-        stat_map = datasets.fetch_localizer_button_task()['tmaps'][0]
-    info, colors = full_brain_info(stat_map, args.threshold)
-    as_json = json.dumps(info)
-    as_html = HTML_TEMPLATE.replace('INSERT_STAT_MAP_JSON_HERE', as_json)
-    as_html = as_html.replace('INSERT_COLORSCALE_HERE', colors)
+    as_html = make_html(args.stat_map, args.threshold)
     with open(args.out_file, 'w') as f:
         f.write(as_html)
