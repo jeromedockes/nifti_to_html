@@ -1,6 +1,7 @@
 import base64
 import argparse
 import json
+import cgi
 
 import numpy as np
 from nilearn import surface, datasets
@@ -316,8 +317,8 @@ def full_brain_info(stat_map, mesh=None,
                     threshold=None, cmap=plotting.cm.cold_hot):
     info = {}
     if mesh is None:
-        # mesh = datasets.fetch_surf_fsaverage5()
-        mesh = load_fsaverage()
+        mesh = datasets.fetch_surf_fsaverage5()
+        # mesh = load_fsaverage()
     surf_maps = [
         surface.vol_to_surf(stat_map, mesh['pial_{}'.format(h)])
         for h in ['left', 'right']
@@ -357,6 +358,17 @@ def make_html(stat_map=None, mesh=None,
     as_html = HTML_TEMPLATE.replace('INSERT_STAT_MAP_JSON_HERE', as_json)
     as_html = as_html.replace('INSERT_COLORSCALE_HERE', colors)
     return as_html
+
+
+def make_ipython_html(stat_map=None, mesh=None, threshold=None,
+                      cmap=plotting.cm.cold_hot, width=600, height=600):
+    as_html = make_html(
+        stat_map=stat_map, mesh=mesh, threshold=threshold, cmap=cmap)
+    escaped = cgi.escape(as_html, quote=True)
+    wrapped = '<iframe srcdoc="{}" width={} height={}></iframe>'.format(
+        escaped, width, height)
+    from IPython.display import HTML
+    return HTML(wrapped)
 
 
 if __name__ == '__main__':
